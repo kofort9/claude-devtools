@@ -1,0 +1,678 @@
+#!/usr/bin/env bash
+#
+# claude-mcp-sync - Consolidate Claude MCP server configurations
+#
+# Scans all Claude Code settings files for MCP server definitions,
+# deduplicates them, and consolidates into global settings.
+#
+# Version: 1.0.0
+# Author: System Admin
+# Date: 2025-11-21
+# Compatibility: bash 3.2+ (macOS compatible)
+
+set -e
+set -u
+set -o pipefail
+
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
+SCRIPT_NAME="claude-mcp-sync"
+VERSION="1.0.0"
+GLOBAL_SETTINGS="$HOME/.claude/settings.json"
+DRY_RUN=false
+VERBOSE=false
+
+# Temporary directory for working files
+WORK_DIR=""
+
+# ANSI color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# Check if terminal supports colors
+if [[ ! -t 1 ]] || ! tput colors &>/dev/null; then
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    CYAN=''
+    BOLD=''
+    RESET=''
+fi
+
+# ============================================================================
+# CLEANUP
+# ============================================================================
+
+cleanup() {
+    if [[ -n "$WORK_DIR" && -d "$WORK_DIR" ]]; then
+        rm -rf "$WORK_DIR"
+    fi
+}
+
+trap cleanup EXIT
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+log_info() {
+    echo -e "${BLUE}[INFO]${RESET} $*"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${RESET} $*"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${RESET} $*" >&2
+}
+
+log_section() {
+    echo ""
+    echo -e "${BOLD}${CYAN}[$1]${RESET} $2"
+}
+
+# ============================================================================
+# CORE FUNCTIONS
+# ============================================================================
+
+usage() {
+    cat <<EOF
+${BOLD}${SCRIPT_NAME}${RESET} - Consolidate Claude MCP server configurations
+
+${BOLD}USAGE:${RESET}
+  ${SCRIPT_NAME} [OPTIONS]
+
+${BOLD}OPTIONS:${RESET}
+  --dry-run    Preview changes without applying them
+  --verbose    Show detailed output during execution
+  --help       Show this help message
+  --version    Show version information
+
+${BOLD}DESCRIPTION:${RESET}
+  Scans all Claude Code settings files for MCP server definitions,
+  deduplicates them, and consolidates into global settings.
+
+  Always creates a timestamped backup before making changes.
+  Preserves other settings (non-MCP config) in global settings.
+
+  Search locations:
+    - ~/.claude/settings.json (global)
+    - <any-dir>/.claude/settings.json (project-level)
+    - <any-dir>/.claude/settings-*.json (named configs)
+
+  Skips: node_modules directories
+
+${BOLD}MERGE STRATEGY:${RESET}
+  - MCPs are identified by server name (key)
+  - Duplicates: Global settings takes precedence
+  - If not in global: First occurrence found is used
+  - Other top-level settings in global config are preserved
+
+${BOLD}EXAMPLES:${RESET}
+  ${SCRIPT_NAME} --dry-run    # Preview changes
+  ${SCRIPT_NAME}              # Apply changes
+  ${SCRIPT_NAME} --verbose    # Show detailed progress
+
+${BOLD}REQUIREMENTS:${RESET}
+  - jq (for JSON parsing and validation)
+
+${BOLD}FILES:${RESET}
+  Settings: ${GLOBAL_SETTINGS}
+  Backups:  ${GLOBAL_SETTINGS}.backup-YYYYMMDD-HHMMSS
+
+${BOLD}EXIT CODES:${RESET}
+  0 - Success (changes applied or no changes needed)
+  1 - Error occurred
+  2 - No changes needed (when using --dry-run)
+
+${BOLD}VERSION:${RESET} ${VERSION}
+EOF
+}
+
+check_dependencies() {
+    if ! command -v jq &> /dev/null; then
+        log_error "Required dependency 'jq' not found"
+        echo ""
+        echo "To install jq:"
+        echo "  macOS:  brew install jq"
+        echo "  Linux:  sudo apt-get install jq  (Debian/Ubuntu)"
+        echo "          sudo yum install jq      (RHEL/CentOS)"
+        echo ""
+        return 1
+    fi
+
+    local jq_version
+    jq_version=$(jq --version 2>&1 | head -n1)
+    [[ "$VERBOSE" == "true" ]] && log_info "Found jq: $jq_version"
+
+    return 0
+}
+
+find_settings_files() {
+    log_section "SCAN" "Searching for Claude settings files..."
+
+    # Create temp file to store results
+    local files_list="$WORK_DIR/files.txt"
+
+    # Use find to locate all .claude/settings*.json files, excluding node_modules
+    find "$HOME" -type f \( -path "*/.claude/settings.json" -o -path "*/.claude/settings-*.json" \) \
+        ! -path "*/node_modules/*" \
+        2>/dev/null > "$files_list" || true
+
+    local count
+    count=$(wc -l < "$files_list" | tr -d ' ')
+
+    if [[ $count -eq 0 ]]; then
+        log_warn "No Claude settings files found"
+        echo "  Searched in: $HOME"
+        echo "  Pattern: .claude/settings*.json"
+        echo "  Excluded: node_modules directories"
+        return 2
+    fi
+
+    echo "  Found ${BOLD}${count}${RESET} settings file(s):"
+
+    return 0
+}
+
+extract_mcp_servers() {
+    local settings_file="$1"
+    local output_file="$2"
+
+    # Check if file is readable
+    if [[ ! -r "$settings_file" ]]; then
+        log_warn "Cannot read file: $settings_file (skipping)"
+        echo "{}" > "$output_file"
+        return 1
+    fi
+
+    # Try to parse JSON and extract mcpServers
+    if ! jq -r '.mcpServers // {}' "$settings_file" > "$output_file" 2>/dev/null; then
+        log_warn "Invalid JSON in: $settings_file (skipping)"
+        echo "{}" > "$output_file"
+        return 1
+    fi
+
+    return 0
+}
+
+merge_mcp_configs() {
+    local files_list="$1"
+    local output_file="$2"
+    local sources_file="$3"
+    local stats_file="$4"
+
+    log_section "MERGE" "Consolidating MCP servers..."
+
+    # Initialize merged result
+    echo "{}" > "$output_file"
+
+    # Initialize sources tracking (format: server_name|source_path)
+    > "$sources_file"
+
+    # Initialize statistics
+    local total_found=0
+    local duplicates=0
+    local unique=0
+
+    # First, extract MCPs from global settings (highest priority)
+    if [[ -f "$GLOBAL_SETTINGS" ]]; then
+        local global_mcps="$WORK_DIR/global_mcps.json"
+        extract_mcp_servers "$GLOBAL_SETTINGS" "$global_mcps" || true
+
+        # Get list of MCP names in global
+        local global_names
+        global_names=$(jq -r 'keys[]' "$global_mcps" 2>/dev/null || echo "")
+
+        if [[ -n "$global_names" ]]; then
+            cp "$global_mcps" "$output_file"
+
+            while IFS= read -r name; do
+                [[ -z "$name" ]] && continue
+                echo "${name}|${GLOBAL_SETTINGS}" >> "$sources_file"
+                echo "  ${GREEN}✓${RESET} ${BOLD}${name}${RESET} (already in global)"
+                unique=$((unique + 1))
+            done <<< "$global_names"
+        fi
+    fi
+
+    # Process all other settings files
+    while IFS= read -r settings_file; do
+        [[ -z "$settings_file" ]] && continue
+
+        # Skip the global settings (already processed)
+        [[ "$settings_file" == "$GLOBAL_SETTINGS" ]] && continue
+
+        local file_mcps="$WORK_DIR/file_mcps_$$.json"
+        extract_mcp_servers "$settings_file" "$file_mcps" || continue
+
+        # Get count of MCPs in this file
+        local mcp_count
+        mcp_count=$(jq 'length' "$file_mcps" 2>/dev/null || echo "0")
+        total_found=$((total_found + mcp_count))
+
+        if [[ $mcp_count -eq 0 ]]; then
+            [[ "$VERBOSE" == "true" ]] && echo "  ${CYAN}○${RESET} $(echo "$settings_file" | sed "s|$HOME|~|") (no MCPs)"
+            rm -f "$file_mcps"
+            continue
+        fi
+
+        # Display file info
+        local display_path
+        display_path=$(echo "$settings_file" | sed "s|$HOME|~|")
+        local mcp_names
+        mcp_names=$(jq -r 'keys | join(", ")' "$file_mcps" 2>/dev/null || echo "")
+
+        if [[ "$VERBOSE" == "true" ]]; then
+            echo "  ${CYAN}→${RESET} $display_path (${mcp_count} MCP$([ $mcp_count -ne 1 ] && echo 's'): $mcp_names)"
+        fi
+
+        # Merge each MCP from this file
+        local names
+        names=$(jq -r 'keys[]' "$file_mcps" 2>/dev/null || echo "")
+
+        while IFS= read -r name; do
+            [[ -z "$name" ]] && continue
+
+            # Check if this MCP already exists in merged result
+            local exists
+            exists=$(jq --arg name "$name" 'has($name)' "$output_file" 2>/dev/null || echo "false")
+
+            if [[ "$exists" == "true" ]]; then
+                # Already exists (duplicate)
+                duplicates=$((duplicates + 1))
+                local existing_source
+                existing_source=$(grep "^${name}|" "$sources_file" | head -1 | cut -d'|' -f2)
+                [[ "$VERBOSE" == "true" ]] && echo "    ${YELLOW}⊚${RESET} ${name} (duplicate, keeping from $(echo "$existing_source" | sed "s|$HOME|~|"))"
+            else
+                # New MCP, add it
+                local mcp_config
+                mcp_config=$(jq --arg name "$name" '.[$name]' "$file_mcps")
+                local new_merged
+                new_merged=$(jq --arg name "$name" --argjson config "$mcp_config" '.[$name] = $config' "$output_file")
+                echo "$new_merged" > "$output_file"
+                echo "${name}|${settings_file}" >> "$sources_file"
+                echo "  ${GREEN}+${RESET} ${BOLD}${name}${RESET} (from $display_path)"
+                unique=$((unique + 1))
+            fi
+        done <<< "$names"
+
+        rm -f "$file_mcps"
+    done < "$files_list"
+
+    # Store statistics
+    echo "total_found=$total_found" > "$stats_file"
+    echo "duplicates=$duplicates" >> "$stats_file"
+    echo "unique=$unique" >> "$stats_file"
+
+    return 0
+}
+
+generate_diff() {
+    local current_json="$1"
+    local new_json="$2"
+    local diff_stats="$3"
+
+    log_section "DIFF" "Changes to apply..."
+
+    # Get current MCP names
+    local current_names
+    current_names=$(jq -r 'keys[]' "$current_json" 2>/dev/null || echo "")
+
+    # Get new MCP names
+    local new_names
+    new_names=$(jq -r 'keys[]' "$new_json" 2>/dev/null || echo "")
+
+    # Find added, removed, and unchanged
+    local added_file="$WORK_DIR/added.txt"
+    local removed_file="$WORK_DIR/removed.txt"
+    local unchanged_file="$WORK_DIR/unchanged.txt"
+    > "$added_file"
+    > "$removed_file"
+    > "$unchanged_file"
+
+    # Find added (in new but not in current)
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        local in_current
+        in_current=$(jq --arg name "$name" 'has($name)' "$current_json" 2>/dev/null || echo "false")
+        if [[ "$in_current" == "false" ]]; then
+            echo "$name" >> "$added_file"
+        else
+            echo "$name" >> "$unchanged_file"
+        fi
+    done <<< "$new_names"
+
+    # Find removed (in current but not in new)
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        local in_new
+        in_new=$(jq --arg name "$name" 'has($name)' "$new_json" 2>/dev/null || echo "false")
+        if [[ "$in_new" == "false" ]]; then
+            echo "$name" >> "$removed_file"
+        fi
+    done <<< "$current_names"
+
+    # Count results
+    local added_count removed_count unchanged_count
+    added_count=$(grep -c . "$added_file" 2>/dev/null | tr -d ' \n' || echo "0")
+    removed_count=$(grep -c . "$removed_file" 2>/dev/null | tr -d ' \n' || echo "0")
+    unchanged_count=$(grep -c . "$unchanged_file" 2>/dev/null | tr -d ' \n' || echo "0")
+
+    # Display changes
+    if [[ $added_count -gt 0 ]]; then
+        local added_names
+        added_names=$(tr '\n' ', ' < "$added_file" | sed 's/,$//')
+        echo "  ${GREEN}Added:${RESET} ${added_names} (${added_count} new)"
+    else
+        echo "  ${GREEN}Added:${RESET} (none)"
+    fi
+
+    if [[ $removed_count -gt 0 ]]; then
+        local removed_names
+        removed_names=$(tr '\n' ', ' < "$removed_file" | sed 's/,$//')
+        echo "  ${RED}Removed:${RESET} ${removed_names} (${removed_count})"
+    else
+        echo "  ${GREEN}Removed:${RESET} (none)"
+    fi
+
+    if [[ $unchanged_count -gt 0 ]]; then
+        local unchanged_names
+        unchanged_names=$(tr '\n' ', ' < "$unchanged_file" | sed 's/,$//')
+        echo "  ${CYAN}Unchanged:${RESET} ${unchanged_names} (${unchanged_count} existing)"
+    else
+        echo "  ${CYAN}Unchanged:${RESET} (none)"
+    fi
+
+    # Store stats
+    echo "added=$added_count" > "$diff_stats"
+    echo "removed=$removed_count" >> "$diff_stats"
+    echo "unchanged=$unchanged_count" >> "$diff_stats"
+
+    # Return whether changes exist
+    if [[ $added_count -eq 0 && $removed_count -eq 0 ]]; then
+        return 2  # No changes
+    fi
+
+    return 0
+}
+
+create_backup() {
+    local source_file="$1"
+
+    log_section "BACKUP" "Creating backup..."
+
+    if [[ ! -f "$source_file" ]]; then
+        log_warn "Source file doesn't exist, skipping backup"
+        return 0
+    fi
+
+    local timestamp
+    timestamp=$(date +"%Y%m%d-%H%M%S")
+    local backup_file="${source_file}.backup-${timestamp}"
+
+    if ! cp "$source_file" "$backup_file" 2>/dev/null; then
+        log_error "Failed to create backup"
+        return 1
+    fi
+
+    local display_path
+    display_path=$(echo "$backup_file" | sed "s|$HOME|~|")
+    echo "  ${GREEN}→${RESET} $display_path"
+
+    return 0
+}
+
+validate_json() {
+    local json_file="$1"
+
+    [[ "$VERBOSE" == "true" ]] && log_section "VALIDATE" "Checking JSON syntax..."
+
+    if ! jq empty "$json_file" 2>/dev/null; then
+        log_error "Generated JSON is invalid"
+        [[ "$VERBOSE" == "true" ]] && jq . "$json_file" 2>&1 || true
+        return 1
+    fi
+
+    [[ "$VERBOSE" == "true" ]] && echo "  ${GREEN}✓${RESET} Valid JSON"
+
+    return 0
+}
+
+write_settings() {
+    local new_settings_file="$1"
+
+    log_section "WRITE" "Updating global settings..."
+
+    # Ensure .claude directory exists
+    local claude_dir
+    claude_dir=$(dirname "$GLOBAL_SETTINGS")
+    if [[ ! -d "$claude_dir" ]]; then
+        log_info "Creating directory: $claude_dir"
+        if ! mkdir -p "$claude_dir" 2>/dev/null; then
+            log_error "Cannot create directory: $claude_dir"
+            return 1
+        fi
+    fi
+
+    # Write to temporary file first (atomic write)
+    local temp_file
+    temp_file=$(mktemp "${GLOBAL_SETTINGS}.tmp.XXXXXX")
+
+    if ! jq . "$new_settings_file" > "$temp_file" 2>/dev/null; then
+        log_error "Failed to write to temporary file"
+        rm -f "$temp_file"
+        return 1
+    fi
+
+    # Move temp file to final location
+    if ! mv "$temp_file" "$GLOBAL_SETTINGS" 2>/dev/null; then
+        log_error "Failed to write to $GLOBAL_SETTINGS"
+        rm -f "$temp_file"
+        echo ""
+        echo "Suggestions:"
+        echo "  1. Check file permissions: ls -la $GLOBAL_SETTINGS"
+        echo "  2. Ensure $claude_dir directory exists"
+        echo "  3. Check disk space: df -h ~"
+        return 1
+    fi
+
+    local display_path
+    display_path=$(echo "$GLOBAL_SETTINGS" | sed "s|$HOME|~|")
+    echo "  ${GREEN}✓${RESET} Written to $display_path"
+
+    return 0
+}
+
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
+main() {
+    # Create working directory
+    WORK_DIR=$(mktemp -d)
+
+    # Check dependencies
+    check_dependencies || exit 1
+
+    # Find all settings files
+    local files_list="$WORK_DIR/files.txt"
+    if ! find_settings_files; then
+        local exit_code=$?
+        [[ $exit_code -eq 2 ]] && exit 0  # No files found, not an error
+        exit 1
+    fi
+
+    # Display found files
+    local idx=1
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+
+        local display_path
+        display_path=$(echo "$file" | sed "s|$HOME|~|")
+
+        # Get MCP count for this file
+        local mcp_json="$WORK_DIR/display_mcps_$$.json"
+        extract_mcp_servers "$file" "$mcp_json"
+        local mcp_count
+        mcp_count=$(jq 'length' "$mcp_json" 2>/dev/null || echo "0")
+
+        if [[ $mcp_count -gt 0 ]]; then
+            local mcp_names
+            mcp_names=$(jq -r 'keys | join(", ")' "$mcp_json" 2>/dev/null || echo "")
+            echo "    ${idx}. $display_path (${mcp_count} MCP$([ $mcp_count -ne 1 ] && echo 's'): $mcp_names)"
+        else
+            echo "    ${idx}. $display_path (no MCPs)"
+        fi
+        idx=$((idx + 1))
+        rm -f "$mcp_json"
+    done < "$files_list"
+
+    # Merge all MCP configurations
+    local merged_mcps="$WORK_DIR/merged_mcps.json"
+    local mcp_sources="$WORK_DIR/mcp_sources.txt"
+    local merge_stats="$WORK_DIR/merge_stats.txt"
+
+    merge_mcp_configs "$files_list" "$merged_mcps" "$mcp_sources" "$merge_stats"
+
+    # Get current global settings
+    local current_settings="$WORK_DIR/current_settings.json"
+    if [[ -f "$GLOBAL_SETTINGS" ]]; then
+        cp "$GLOBAL_SETTINGS" "$current_settings"
+    else
+        echo "{}" > "$current_settings"
+    fi
+
+    # Extract current MCPs
+    local current_mcps="$WORK_DIR/current_mcps.json"
+    jq '.mcpServers // {}' "$current_settings" > "$current_mcps" 2>/dev/null || echo "{}" > "$current_mcps"
+
+    # Generate diff
+    local diff_stats="$WORK_DIR/diff_stats.txt"
+    if ! generate_diff "$current_mcps" "$merged_mcps" "$diff_stats"; then
+        if [[ $? -eq 2 ]]; then
+            echo ""
+            log_success "No changes needed - all MCPs are already in global settings"
+            echo ""
+            echo "Current MCP servers:"
+            jq -r 'keys[]' "$current_mcps" | while read -r name; do
+                echo "  - $name"
+            done
+            exit 0
+        fi
+    fi
+
+    # Build new settings (preserve other top-level keys)
+    local new_settings="$WORK_DIR/new_settings.json"
+    jq --argjson mcps "$(cat "$merged_mcps")" '.mcpServers = $mcps' "$current_settings" > "$new_settings"
+
+    # Validate JSON
+    if ! validate_json "$new_settings"; then
+        log_error "Aborting due to invalid JSON"
+        exit 1
+    fi
+
+    # If dry-run, stop here
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo ""
+        log_info "${BOLD}DRY-RUN${RESET} - Preview complete. No changes applied."
+        echo ""
+        echo "To apply these changes, run without --dry-run:"
+        echo "  ${SCRIPT_NAME}"
+        exit 2
+    fi
+
+    # Create backup
+    if ! create_backup "$GLOBAL_SETTINGS"; then
+        log_error "Aborting due to backup failure"
+        exit 1
+    fi
+
+    # Write new settings
+    if ! write_settings "$new_settings"; then
+        log_error "Failed to write settings"
+        exit 1
+    fi
+
+    # Success summary
+    echo ""
+    log_success "MCP sync complete!"
+
+    # Read statistics
+    source "$merge_stats"
+    source "$diff_stats"
+
+    echo "  Total MCPs: ${unique} (${added} added, ${unchanged} unchanged)"
+
+    if [[ ${duplicates} -gt 0 ]]; then
+        echo "  Duplicates found: ${duplicates} (kept version from global or first occurrence)"
+    fi
+
+    echo ""
+    echo "${BOLD}Next steps:${RESET}"
+    echo "  1. Restart Claude Code to load new MCP servers"
+    echo "  2. Verify MCP tools are available"
+    echo "  3. Remove duplicate configs from project-level settings (optional)"
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo ""
+        echo "${BOLD}MCP Sources:${RESET}"
+        while IFS='|' read -r name source; do
+            local source_path
+            source_path=$(echo "$source" | sed "s|$HOME|~|")
+            echo "  - ${BOLD}${name}${RESET}: $source_path"
+        done < "$mcp_sources"
+    fi
+
+    exit 0
+}
+
+# ============================================================================
+# ARGUMENT PARSING
+# ============================================================================
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        --version)
+            echo "${SCRIPT_NAME} version ${VERSION}"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# ============================================================================
+# EXECUTE
+# ============================================================================
+
+main
