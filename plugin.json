@@ -1,0 +1,9 @@
+{
+  "name": "claude-devtools",
+  "version": "1.0.0",
+  "description": "Developer workflow toolkit - code review, git operations, documentation, and codebase analysis",
+  "author": "kofort9",
+  "skills": "skills",
+  "agents": "agents",
+  "commands": "commands"
+}

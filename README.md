@@ -1,14 +1,59 @@
 # Claude Devtools
 
-Developer tools and utilities for Claude Code.
+Developer tools, agents, and utilities for Claude Code.
 
 ## Overview
 
-This repository contains a collection of developer tools and utilities designed to enhance the Claude Code development experience. These tools help manage configurations, automate common tasks, and improve workflows when working with Claude Code and MCP (Model Context Protocol) servers.
+A Claude Code plugin providing portable developer workflow tools - code review, git operations, documentation, and codebase analysis. Plus standalone CLI utilities for configuration management.
 
-## Tools
+## Installation
 
-### MCP Sync
+### As Claude Code Plugin
+
+```bash
+claude plugin add ~/Repos/claude-devtools
+# Or from GitHub:
+claude plugin add https://github.com/kofort9/claude-devtools
+```
+
+### Standalone Tools
+
+Each CLI tool can be installed independently. See the tool's README for specific instructions.
+
+## Components
+
+### Agents (11)
+
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| **orchestrator** | opus | Meta-agent for task delegation and multi-agent coordination |
+| **code-reviewer** | sonnet | Code quality analysis, security assessment, issue detection |
+| **tech-writer** | sonnet | Documentation, PR descriptions, migration guides |
+| **gitops-devex** | sonnet | Git workflow, branch operations, GitHub integration |
+| **git-workflow-guardian** | haiku | Proactive merge conflict prevention |
+| **repo-topology** | - | Codebase architecture analysis and dependency mapping |
+| **rag-optimizer** | - | Optimize docs for RAG systems (embedding, chunking) |
+| **doc-quality-reviewer** | - | Audit documentation for accuracy and maintainability |
+| **system-admin** | sonnet | Complex system projects and script development |
+| **system-ops** | sonnet | Quick local machine operations |
+| **plugin-manager** | haiku | Manage Claude Code plugin repositories |
+
+### Skills (2)
+
+| Skill | Purpose |
+|-------|---------|
+| **repo-documentation** | Multi-agent documentation workflow (analysis → synthesis → validation) |
+| **branch-health** | On-demand git branch health checks (staleness, conflicts, PR overlaps) |
+
+### Commands (1)
+
+| Command | Purpose |
+|---------|---------|
+| **/document** | Create or update repository documentation |
+
+### CLI Tools
+
+#### MCP Sync
 
 MCP configuration consolidation tool for Claude Code.
 
@@ -22,21 +67,12 @@ MCP configuration consolidation tool for Claude Code.
 - Consolidates into global settings (~/.claude/settings.json)
 - Dry-run mode for safe preview
 - Timestamped backups before modifications
-- JSON validation before writing
-- Color-coded terminal output
 
-**Documentation:** See [mcp-sync/README.md](mcp-sync/README.md) for detailed usage instructions.
+**Documentation:** See [mcp-sync/README.md](mcp-sync/README.md) for usage.
 
-## Installation
-
-Each tool can be installed independently. See the tool's README for specific installation instructions.
-
-For mcp-sync:
 ```bash
-# Copy to your local bin directory
+# Install
 cp mcp-sync/claude-mcp-sync ~/bin/
-
-# Make executable
 chmod +x ~/bin/claude-mcp-sync
 
 # Run
