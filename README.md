@@ -22,7 +22,7 @@ Each CLI tool can be installed independently. See the tool's README for specific
 
 ## Components
 
-### Agents (11)
+### Agents (12)
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
@@ -37,13 +37,15 @@ Each CLI tool can be installed independently. See the tool's README for specific
 | **system-admin** | sonnet | Complex system projects and script development |
 | **system-ops** | sonnet | Quick local machine operations |
 | **plugin-manager** | haiku | Manage Claude Code plugin repositories |
+| **macos-sysadmin** | sonnet | macOS system administration and automation |
 
-### Skills (2)
+### Skills (3)
 
 | Skill | Purpose |
 |-------|---------|
 | **repo-documentation** | Multi-agent documentation workflow (analysis → synthesis → validation) |
 | **branch-health** | On-demand git branch health checks (staleness, conflicts, PR overlaps) |
+| **alias-correction** | Correct and suggest command aliases |
 
 ### Commands (1)
 
