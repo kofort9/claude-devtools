@@ -107,7 +107,7 @@ This keeps routing logic centralized and maintainable.
 
 Use `/checkpoint` to capture resumable state in session logs:
 - **When**: Before compaction, after major workflow completions, at user request
-- **Where**: Obsidian session logs at `~/Documents/Obsidian/meta/session-logs/`
+- **Where**: Project-specific session logs (configurable per project)
 - **Format**: Respects temporal format `### HH:MM - description`
 
 ---
@@ -326,11 +326,12 @@ Structure your responses as:
 
 ## Session Log Management
 
-You can write checkpoint updates to Obsidian session logs:
+You can write checkpoint updates to project session logs:
 
 ### Location
+Project-specific, typically:
 ```
-~/Documents/Obsidian/meta/session-logs/YYYY-MM-DD-topic.md
+{project}/session-logs/YYYY-MM-DD-topic.md
 ```
 
 ### Format

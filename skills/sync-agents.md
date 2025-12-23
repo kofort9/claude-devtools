@@ -1,12 +1,14 @@
 ---
 name: sync-agents
-description: Sync local agents and skills to claude-devtools repo
+description: Sync public agents and skills to claude-devtools repo
 argument-hint: "[--dry-run] [--push]"
 ---
 
 # Agent Sync Skill
 
-Sync local agent definitions and skills from `~/.claude/` to the claude-devtools repo.
+Sync **public** agent definitions and skills from `~/.claude/` to the claude-devtools repo.
+
+Private/personal agents (Obsidian, PKM workflows) are excluded automatically.
 
 ## Usage
 
@@ -21,56 +23,107 @@ Sync local agent definitions and skills from `~/.claude/` to the claude-devtools
 ### 1. Preview Mode (default)
 
 ```bash
-# Show what would be synced
+# Show what would be synced (public agents only)
+REPO_DIR="$HOME/Repos/claude-devtools"
+
 echo "=== AGENTS ==="
-diff -rq ~/.claude/agents/ /Users/kofifort/Repos/claude-devtools/agents/ \
-  --exclude='archive' --exclude='*.backup*' 2>/dev/null || echo "Differences found"
+diff -rq ~/.claude/agents/ "$REPO_DIR/agents/" \
+  --exclude='archive' --exclude='*.backup*' \
+  --exclude='obsidian-writer.md' \
+  --exclude='conversation-classifier.md' \
+  --exclude='knowledge-validator.md' \
+  --exclude='conversation-compressor.md' \
+  --exclude='session-logger.md' \
+  --exclude='weekly-reviewer.md' \
+  --exclude='project-researcher.md' \
+  --exclude='concept-linker.md' \
+  --exclude='insight-extractor.md' \
+  --exclude='web-clipper.md' \
+  --exclude='pdf-ingester.md' \
+  --exclude='rag-optimizer.md' \
+  --exclude='macos-sysadmin.md' \
+  --exclude='agent-sentinel.md' \
+  2>/dev/null || echo "Differences found"
 
 echo "=== SKILLS ==="
-diff -rq ~/.claude/skills/ /Users/kofifort/Repos/claude-devtools/skills/ 2>/dev/null || echo "Differences found"
+diff -rq ~/.claude/skills/ "$REPO_DIR/skills/" \
+  --exclude='browser-scrape.md' \
+  --exclude='checkpoint.md' \
+  --exclude='project-pulse.md' \
+  --exclude='temporal-extraction.md' \
+  --exclude='agent-output-recovery.md' \
+  --exclude='alias-correction.md' \
+  --exclude='new-session.md' \
+  --exclude='vault-search.md' \
+  --exclude='append-log.md' \
+  --exclude='log-media.md' \
+  2>/dev/null || echo "Differences found"
 ```
 
 ### 2. Sync Mode (--push)
 
 ```bash
-# Sync agents (exclude archive and backups)
+REPO_DIR="$HOME/Repos/claude-devtools"
+
+# Sync public agents only
 rsync -av --delete \
   --exclude='archive/' \
   --exclude='*.backup*' \
+  --exclude='obsidian-writer.md' \
+  --exclude='conversation-classifier.md' \
+  --exclude='knowledge-validator.md' \
+  --exclude='conversation-compressor.md' \
+  --exclude='session-logger.md' \
+  --exclude='weekly-reviewer.md' \
+  --exclude='project-researcher.md' \
+  --exclude='concept-linker.md' \
+  --exclude='insight-extractor.md' \
+  --exclude='web-clipper.md' \
+  --exclude='pdf-ingester.md' \
+  --exclude='rag-optimizer.md' \
+  --exclude='macos-sysadmin.md' \
+  --exclude='agent-sentinel.md' \
   ~/.claude/agents/*.md \
-  /Users/kofifort/Repos/claude-devtools/agents/
+  "$REPO_DIR/agents/"
 
-# Sync skills
+# Sync public skills only
 rsync -av --delete \
+  --exclude='browser-scrape.md' \
+  --exclude='checkpoint.md' \
+  --exclude='project-pulse.md' \
+  --exclude='temporal-extraction.md' \
+  --exclude='agent-output-recovery.md' \
+  --exclude='alias-correction.md' \
+  --exclude='new-session.md' \
+  --exclude='vault-search.md' \
+  --exclude='append-log.md' \
+  --exclude='log-media.md' \
   ~/.claude/skills/*.md \
-  /Users/kofifort/Repos/claude-devtools/skills/
+  "$REPO_DIR/skills/"
 
 # Commit and push
-cd /Users/kofifort/Repos/claude-devtools
+cd "$REPO_DIR"
 git add agents/ skills/
 git status
-git commit -m "sync: update agents and skills from local $(date +%Y-%m-%d)"
+git commit -m "sync: update agents and skills $(date +%Y-%m-%d)"
 git push origin main
 ```
 
 ## What Gets Synced
 
-### Included
-- `~/.claude/agents/*.md` → `claude-devtools/agents/`
-- `~/.claude/skills/*.md` → `claude-devtools/skills/`
+### Public (Included)
+- Generic dev tools: code-reviewer, gitops-devex, tech-writer, system-admin
+- Workflow skills: worktree-*, pre-commit-gate, review-*, etc.
 
-### Excluded
-- `~/.claude/agents/archive/` - Archived agents stay local
-- `*.backup*` files - Old versions stay local
-- Commands - Managed separately
-
-## Current State
-
-Run `/sync-agents` to see current diff between local and repo.
+### Private (Excluded)
+- Obsidian/PKM agents: obsidian-writer, concept-linker, insight-extractor, etc.
+- Personal workflow skills: vault-search, checkpoint, project-pulse, etc.
+- Security agents: agent-sentinel (contains sensitive detection patterns)
 
 ## Safety
 
 - Default is dry-run (preview only)
 - `--push` required to actually sync
-- Excludes archive to prevent accidentally publishing deprecated agents
-- Uses `rsync --delete` to remove agents from repo that were archived locally
+- Excludes archive to prevent publishing deprecated agents
+- Excludes private/personal agents automatically
+- Uses `$HOME` instead of hardcoded paths

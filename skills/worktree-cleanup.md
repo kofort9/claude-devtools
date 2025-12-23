@@ -178,17 +178,17 @@ git worktree prune
 ### Dry Run
 
 ```
-WORKTREE CLEANUP - trakt.tv-mcp
+WORKTREE CLEANUP - my-project
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Candidate: oauth-refresh
-  ├─ Path: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/oauth-refresh
+  ├─ Path: ~/Repos/my-project-worktrees/oauth-refresh
   ├─ Branch: feature/oauth-refresh
   └─ Reason: PR #31 merged
   [DRY RUN - would remove]
 
   Candidate: old-experiment
-  ├─ Path: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/old-experiment
+  ├─ Path: ~/Repos/my-project-worktrees/old-experiment
   ├─ Branch: feature/old-experiment
   └─ Reason: PR #28 closed (not merged)
   [DRY RUN - would remove]
@@ -201,11 +201,11 @@ Run without --dry-run to actually clean up.
 ### Actual Cleanup
 
 ```
-WORKTREE CLEANUP - trakt.tv-mcp
+WORKTREE CLEANUP - my-project
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Candidate: oauth-refresh
-  ├─ Path: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/oauth-refresh
+  ├─ Path: ~/Repos/my-project-worktrees/oauth-refresh
   ├─ Branch: feature/oauth-refresh
   └─ Reason: PR #31 merged
   Removing worktree...

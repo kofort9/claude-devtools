@@ -147,12 +147,12 @@ echo "  /worktree-cleanup # After PR is merged"
 ```
 Worktree created successfully!
 
-Workspace: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/oauth-refresh
+Workspace: ~/Repos/my-project-worktrees/oauth-refresh
 Branch: feature/oauth-refresh
 Based on: origin/main
 
 Next steps:
-  1. cd /Users/kofifort/Repos/trakt.tv-mcp-worktrees/oauth-refresh
+  1. cd ~/Repos/my-project-worktrees/oauth-refresh
   2. Fill in PR_SCOPE.md to define what this PR will contain
   3. Start coding!
 
