@@ -22,6 +22,7 @@ These agents are available globally across all projects:
 | **tech-writer** | sonnet | Documentation, technical writing, API docs, READMEs, runbooks |
 | **gitops-devex** | opus | **Unified git authority**: worktrees, hard gates, review loops, PR creation. Force push FORBIDDEN. |
 | **repo-topology** | sonnet | Architecture analysis, codebase structure, dependency mapping |
+| **pattern-learner** | opus | **Learning & autonomy**: tracks decisions across domains, identifies patterns, suggests graduated automation |
 
 ### Archived Agents (No Longer Available)
 
@@ -85,6 +86,10 @@ You have access to these skills for self-awareness and session management:
 | `/info-hub <query>` | Capability registry | When routing tasks, answering "what agent does X?" |
 | `/checkpoint` | Session state snapshot | Before context compaction, at major milestones |
 | `/workflow-map` | Agent/skill dashboard | Self-audit, orientation, capability discovery |
+| `/timer start/stop` | Time tracking | Track task duration for pattern analysis |
+| `/timestamp` | Validated time | Get current time with midnight rollover detection |
+| `/stale` | Session freshness | Check if agents/skills modified since session start |
+| `/patterns report` | Pattern analysis | Query pattern-learner for autonomy recommendations |
 
 ### Using /info-hub for Routing
 
@@ -107,7 +112,7 @@ This keeps routing logic centralized and maintainable.
 
 Use `/checkpoint` to capture resumable state in session logs:
 - **When**: Before compaction, after major workflow completions, at user request
-- **Where**: Project-specific session logs (configurable per project)
+- **Where**: Obsidian session logs at `~/Documents/Obsidian/meta/session-logs/`
 - **Format**: Respects temporal format `### HH:MM - description`
 
 ---
@@ -154,6 +159,46 @@ Consider architectural changes when:
 - Workflows regularly involve 4+ agents
 - Context limits become frequent blockers
 - Recovery from failures becomes manual burden
+
+---
+
+## Pattern Learning Integration
+
+The `pattern-learner` agent provides graduated autonomy by learning from human decisions.
+
+### Querying Pattern Safety
+
+Before auto-approving any action, query pattern-learner:
+
+```
+orchestrator → pattern-learner: check_pattern("review:style:trivial:low")
+pattern-learner → orchestrator: {"safe": true, "confidence": 0.94, "basis": "23 approvals, 0 rejections"}
+```
+
+### Domains Tracked
+
+| Domain | What's Learned | Feeds Into |
+|--------|---------------|------------|
+| Code Review | approve/reject patterns by tag+effort | code-reviewer auto-decisions |
+| Insight Extraction | accept/revise by source type | insight-extractor confidence |
+| Planning | estimate accuracy | task breakdown suggestions |
+| Agent Delegation | success rates per agent | routing preferences |
+| Time Tracking | actual vs estimated | `/timer` pattern analysis |
+
+### When to Consult pattern-learner
+
+- Before automating any repeating decision
+- When graduating a pattern from manual → auto
+- Weekly review of drift (patterns that were stable but now failing)
+- After user overrides (strongest learning signal)
+
+### Feedback Loop
+
+```
+Human decision → Log to pattern registry → Aggregate stats →
+Update confidence → Check graduation criteria →
+Recommend autonomy level → Update agent behavior
+```
 
 ---
 
@@ -326,12 +371,11 @@ Structure your responses as:
 
 ## Session Log Management
 
-You can write checkpoint updates to project session logs:
+You can write checkpoint updates to Obsidian session logs:
 
 ### Location
-Project-specific, typically:
 ```
-{project}/session-logs/YYYY-MM-DD-topic.md
+~/Documents/Obsidian/meta/session-logs/YYYY-MM-DD-topic.md
 ```
 
 ### Format

@@ -127,25 +127,25 @@ echo "  /branch-health           Detailed health for current branch"
 ## Output Format
 
 ```
-ACTIVE WORKTREES - my-project
+ACTIVE WORKTREES - trakt.tv-mcp
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   feature/oauth-refresh
-  ├─ Path: ~/Repos/my-project-worktrees/oauth-refresh
+  ├─ Path: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/oauth-refresh
   ├─ Behind main: 3 commits
   ├─ Last commit: 2 hours ago
   ├─ PR: Open #31
   └─ Health: Healthy
 
   fix/rate-limit-bug
-  ├─ Path: ~/Repos/my-project-worktrees/rate-limit-bug
+  ├─ Path: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/rate-limit-bug
   ├─ Behind main: 12 commits
   ├─ Last commit: 3 days ago
   ├─ PR: None
   └─ Health: Stale
 
   feature/watchlist-sync
-  ├─ Path: ~/Repos/my-project-worktrees/watchlist-sync
+  ├─ Path: /Users/kofifort/Repos/trakt.tv-mcp-worktrees/watchlist-sync
   ├─ Behind main: 0 commits
   ├─ Last commit: 10 minutes ago
   ├─ PR: Draft #32
