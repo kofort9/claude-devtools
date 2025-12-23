@@ -17,6 +17,7 @@ description: |
   - "Find all broken internal links in the docs folder"
   - "Which docs reference the deprecated auth module?"
   - "Review the getting started guide for completeness"
+model: sonnet
 tools:
   - Glob
   - Grep

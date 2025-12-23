@@ -268,19 +268,19 @@ Each CLI tool can be installed independently. See the tool's README for specific
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
-| **code-reviewer** | sonnet | Use this agent when: |
-| **doc-quality-reviewer** | ? | Use this agent to audit documentation for accuracy, com |
+| **code-reviewer** | sonnet | A logical chunk of code has been written and needs revi |
+| **doc-quality-reviewer** | sonnet | audit documentation for accuracy, completeness, and mai |
 | **git-workflow-guardian** | haiku | Use this agent proactively when the user is about to ma |
 | **gitops-devex** | opus | Unified Git workflow authority with worktree-based work |
-| **linear-project-manager** | sonnet | Use this agent when you need to plan, organize, or coor |
-| **orchestrator** | opus | Use this agent when:\n\n1. A new task arrives that need |
+| **linear-project-manager** | sonnet | you need to plan, organize, or coordinate multi-phase w |
+| **orchestrator** | opus | A new task arrives that needs to be routed to the appro |
 | **pattern-learner** | opus | Observes decisions across all domains, learns patterns, |
-| **plugin-manager** | haiku | Use this agent to manage Claude Code plugin repositorie |
-| **repo-topology** | ? | Use this agent when you need to understand codebase str |
+| **plugin-manager** | haiku | manage Claude Code plugin repositories. |
+| **repo-topology** | sonnet | trace dependency graphs, or identify architectural patt |
 | **scout** | sonnet | Reconnaissance agent for content triage and routing. Us |
 | **system-admin** | sonnet | Use this agent for complex system projects, script deve |
 | **system-ops** | sonnet | Use this agent for quick local machine operations and d |
-| **tech-writer** | sonnet | Use this agent when documentation needs to be created,  |
+| **tech-writer** | sonnet | Creating or updating README files, API docs, architectu |
 
 ### Skills (18)
 

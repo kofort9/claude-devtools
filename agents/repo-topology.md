@@ -16,6 +16,7 @@ description: |
   - "What files would be affected if I rename the User class?"
   - "Show me the module boundaries in this codebase"
   - "Find all entry points to this service"
+model: sonnet
 tools:
   - Glob
   - Grep
