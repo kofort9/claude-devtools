@@ -30,7 +30,7 @@ claude mcp list | grep playwright
 ```bash
 cat > /Users/kofifort/bin/npx-wrapper << 'EOF'
 #!/bin/bash
-exec /usr/local/bin/npx "$@"
+exec /opt/homebrew/bin/npx "$@"
 EOF
 chmod +x /Users/kofifort/bin/npx-wrapper
 ```
