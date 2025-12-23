@@ -1,3 +1,11 @@
+---
+name: timestamp
+description: Timestamp Validation Skill
+arguments:
+  - name: context
+    description: "What the timestamp is for (optional)"
+---
+
 # Timestamp Validation Skill
 
 Returns validated current timestamp with pattern learning for error correction.

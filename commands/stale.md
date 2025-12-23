@@ -1,3 +1,8 @@
+---
+name: stale
+description: Check if agents/skills modified since session start, recommend restart if stale
+---
+
 # Session Stale Check Skill
 
 Checks if agents or skills have been modified since session start, indicating a restart may be needed to pick up changes.

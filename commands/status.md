@@ -1,4 +1,5 @@
 ---
+name: status
 description: Get knowledge system status report
 ---
 

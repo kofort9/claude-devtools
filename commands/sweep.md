@@ -1,4 +1,5 @@
 ---
+name: sweep
 description: Audit and sync skills/agents across all Claude config locations
 arguments:
   - name: action

@@ -1,4 +1,5 @@
 ---
+name: backlog
 description: Manage knowledge system backlog (add, view, promote, complete tasks)
 arguments:
   - name: action

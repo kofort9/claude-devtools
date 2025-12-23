@@ -1,4 +1,5 @@
 ---
+name: log
 description: Add manual entry to current session log
 arguments:
   - name: entry

@@ -1,4 +1,5 @@
 ---
+name: document
 description: Create or update repository documentation using multi-agent workflow
 arguments:
   - name: task

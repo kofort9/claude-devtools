@@ -1,4 +1,5 @@
 ---
+name: inbox
 description: Process items in the Obsidian inbox folder (classify, extract, route)
 arguments:
   - name: action

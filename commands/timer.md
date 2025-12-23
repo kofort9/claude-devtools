@@ -1,3 +1,11 @@
+---
+name: timer
+description: Timer Skill
+arguments:
+  - name: action
+    description: "start, stop, status, report, or cancel"
+---
+
 # Timer Skill
 
 Track time spent on tasks. Separate from `/timestamp` (validation) - this is for duration tracking.
